@@ -176,11 +176,21 @@ def main():
     # 获取数据库会话
     session = get_session()
     
+    # 标记数据库是否初始化
+    db_initialized = True
+    
     try:
-        # 查询数据
+        # 尝试查询数据
         reservoirs_data = get_reservoirs_with_latest_data(session)
         reservoir_count = len(reservoirs_data)
-        
+    except Exception:
+        # 数据库表不存在或查询失败
+        st.warning("⚠️ 数据库连接成功，但表结构尚未初始化。请在侧边栏点击'初始化数据库'按钮。")
+        reservoirs_data = []
+        reservoir_count = 0
+        db_initialized = False
+    
+    try:
         # ========== 全局超汛限报警检查 ==========
         alert_reservoirs = []
         for item in reservoirs_data:
