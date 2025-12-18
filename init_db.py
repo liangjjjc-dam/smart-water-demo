@@ -4,17 +4,46 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from models import Base, Reservoir, RealtimeData
 
-def get_db_path():
-    # 自动在当前目录下创建 data 文件夹
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    data_dir = os.path.join(base_dir, "data")
-    os.makedirs(data_dir, exist_ok=True)
-    return os.path.join(data_dir, "reservoirs.db")
+
+def get_db_url():
+    """
+    获取数据库连接 URL
+    优先从 Streamlit secrets 读取，如果不在 Streamlit 环境则尝试环境变量
+    """
+    # 方式1：尝试从 Streamlit secrets 读取
+    try:
+        import streamlit as st
+        if hasattr(st, 'secrets') and "db_url" in st.secrets:
+            return st.secrets["db_url"]
+    except Exception:
+        pass
+    
+    # 方式2：尝试从环境变量读取
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url:
+        return db_url
+    
+    # 方式3：都没有则提示用户配置
+    print("=" * 60)
+    print("❌ 错误：未找到数据库连接配置！")
+    print("请选择以下方式之一进行配置：")
+    print("")
+    print("方式1 - Streamlit secrets (推荐)：")
+    print("  创建 .streamlit/secrets.toml 文件，添加：")
+    print('  db_url = "postgresql://user:pass@host:port/dbname"')
+    print("")
+    print("方式2 - 环境变量：")
+    print('  set DATABASE_URL=postgresql://user:pass@host:port/dbname')
+    print("=" * 60)
+    raise SystemExit(1)
+
 
 def init_database():
-    db_path = get_db_path()
+    db_url = get_db_url()
+    print(f">>> 连接数据库...")
+    
     # 创建数据库引擎
-    engine = create_engine(f"sqlite:///{db_path}", echo=False, future=True)
+    engine = create_engine(db_url, echo=False, future=True)
     
     # 1. 建表
     Base.metadata.create_all(engine)
@@ -46,7 +75,7 @@ def init_database():
         session.add_all([d1, d2, d3])
         
         session.commit() # 最终提交
-        print("✅ 数据库初始化成功！文件位于 data/reservoirs.db")
+        print("✅ 数据库初始化成功！（PostgreSQL）")
         
     except Exception as e:
         session.rollback()

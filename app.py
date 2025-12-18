@@ -1,4 +1,3 @@
-import os
 from datetime import datetime
 import streamlit as st
 import pandas as pd
@@ -8,18 +7,22 @@ from streamlit_folium import st_folium
 from sqlalchemy import create_engine, desc, asc
 from sqlalchemy.orm import sessionmaker
 from models import Base, Reservoir, RealtimeData
+from init_db import init_database
 
 
-def get_db_path():
-    """获取数据库路径"""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_dir, "data", "reservoirs.db")
+def get_db_url():
+    """从 Streamlit secrets 获取数据库连接 URL"""
+    try:
+        return st.secrets["db_url"]
+    except Exception:
+        st.error("❌ 未配置数据库连接！请在 .streamlit/secrets.toml 中设置 db_url")
+        st.stop()
 
 
 def get_session():
     """创建数据库会话"""
-    db_path = get_db_path()
-    engine = create_engine(f"sqlite:///{db_path}", echo=False, future=True)
+    db_url = get_db_url()
+    engine = create_engine(db_url, echo=False, future=True)
     SessionLocal = sessionmaker(bind=engine)
     return SessionLocal()
 
@@ -278,6 +281,17 @@ def main():
                         st.rerun()
                     else:
                         st.error("❌ 请先选择水库！")
+            
+            # ========== 管理员专区 ==========
+            st.divider()
+            with st.expander("👨‍💻 管理员专区"):
+                if st.button("🚀 初始化/重置数据库"):
+                    try:
+                        init_database()
+                        st.success("✅ 数据库已在云端重置成功！")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ 初始化失败: {e}")
         
         # 主区域：地图
         st.subheader("🗺️ 水库分布地图")
